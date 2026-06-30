@@ -65,6 +65,23 @@ const createEvent = async (req, res) => {
       });
     }
 
+    // Validate that the Venue contains a seat layout
+    if (!existingVenue.seats || existingVenue.seats.length === 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Selected venue has no seat layout.'
+      });
+    }
+
+    // Clone every venue seat and attach booking status
+    const eventSeats = existingVenue.seats.map(seat => ({
+      seatId: seat.seatId,
+      row: seat.row,
+      number: seat.number,
+      category: seat.category,
+      status: 'available'
+    }));
+
     const event = new Event({
       title,
       description,
@@ -73,7 +90,8 @@ const createEvent = async (req, res) => {
       startTime,
       endTime,
       basePrice: priceNum,
-      posterUrl
+      posterUrl,
+      seats: eventSeats
     });
 
     await event.save();

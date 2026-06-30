@@ -1,5 +1,30 @@
 const mongoose = require('mongoose');
 
+const eventSeatSchema = new mongoose.Schema({
+  seatId: {
+    type: String,
+    required: [true, 'Seat ID is required']
+  },
+  row: {
+    type: String,
+    required: [true, 'Row label is required']
+  },
+  number: {
+    type: Number,
+    required: [true, 'Seat number is required']
+  },
+  category: {
+    type: String,
+    required: [true, 'Seat category is required']
+  },
+  status: {
+    type: String,
+    required: true,
+    enum: ['available', 'reserved', 'booked'],
+    default: 'available'
+  }
+}, { _id: false });
+
 const eventSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -37,7 +62,8 @@ const eventSchema = new mongoose.Schema({
   posterUrl: {
     type: String,
     trim: true
-  }
+  },
+  seats: [eventSeatSchema]
 }, {
   timestamps: true
 });
