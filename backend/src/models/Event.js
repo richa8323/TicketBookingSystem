@@ -40,6 +40,11 @@ const eventSchema = new mongoose.Schema({
     ref: 'Venue',
     required: [true, 'Venue reference is required']
   },
+  organiser: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Organiser reference is required']
+  },
   date: {
     type: Date,
     required: [true, 'Event date is required']

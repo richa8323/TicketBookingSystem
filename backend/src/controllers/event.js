@@ -14,7 +14,7 @@ const timeToMinutes = (timeStr) => {
 /**
  * Create a new Event
  * @route POST /api/events
- * @access Private (Admin only)
+ * @access Private (Admin and Organiser only)
  */
 const createEvent = async (req, res) => {
   try {
@@ -86,6 +86,7 @@ const createEvent = async (req, res) => {
       title,
       description,
       venue,
+      organiser: req.user._id,
       date: eventDate,
       startTime,
       endTime,
@@ -166,7 +167,7 @@ const getEventById = async (req, res) => {
 /**
  * Update an existing Event
  * @route PATCH /api/events/:id
- * @access Private (Admin only)
+ * @access Private (Admin and Organiser only)
  */
 const updateEvent = async (req, res) => {
   try {
@@ -175,6 +176,14 @@ const updateEvent = async (req, res) => {
       return res.status(404).json({
         status: 'fail',
         message: 'Event not found.'
+      });
+    }
+
+    // Authorization checks: Admin can modify any event, Organiser only their own
+    if (req.user.role !== 'Admin' && event.organiser.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You do not have permission to perform this action.'
       });
     }
 
@@ -297,7 +306,7 @@ const updateEvent = async (req, res) => {
 /**
  * Delete an existing Event
  * @route DELETE /api/events/:id
- * @access Private (Admin only)
+ * @access Private (Admin and Organiser only)
  */
 const deleteEvent = async (req, res) => {
   try {
@@ -306,6 +315,14 @@ const deleteEvent = async (req, res) => {
       return res.status(404).json({
         status: 'fail',
         message: 'Event not found.'
+      });
+    }
+
+    // Authorization checks: Admin can modify any event, Organiser only their own
+    if (req.user.role !== 'Admin' && event.organiser.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You do not have permission to perform this action.'
       });
     }
 

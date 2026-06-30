@@ -7,12 +7,12 @@ const { protect, authorize } = require('../middlewares/auth');
 router.use(protect);
 
 router.route('/')
-  .post(authorize('Admin'), createEvent)
+  .post(authorize('Admin', 'Organiser'), createEvent)
   .get(getEvents);
 
 router.route('/:id')
   .get(getEventById)
-  .patch(authorize('Admin'), updateEvent)
-  .delete(authorize('Admin'), deleteEvent);
+  .patch(authorize('Admin', 'Organiser'), updateEvent)
+  .delete(authorize('Admin', 'Organiser'), deleteEvent);
 
 module.exports = router;
