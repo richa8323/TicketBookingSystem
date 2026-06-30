@@ -25,15 +25,57 @@ const createVenue = async (req, res) => {
       });
     }
 
-    // Generate seats based on layout grid configuration and categories
-    const seats = generateSeatLayout(rows, cols, seatCategories);
+    // Validate seat categories
+    if (!seatCategories || !Array.isArray(seatCategories) || seatCategories.length === 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'At least one seat category is required.'
+      });
+    }
+
+    const uniqueNames = new Set();
+    const validatedCategories = [];
+
+    for (const category of seatCategories) {
+      if (!category.name || typeof category.name !== 'string' || category.name.trim() === '') {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Seat category name must be a non-empty string.'
+        });
+      }
+
+      const cleanName = category.name.trim();
+      if (uniqueNames.has(cleanName)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: `Duplicate seat category name detected: ${cleanName}`
+        });
+      }
+      uniqueNames.add(cleanName);
+
+      const multiplier = Number(category.priceMultiplier);
+      if (isNaN(multiplier) || multiplier <= 0) {
+        return res.status(400).json({
+          status: 'fail',
+          message: `Price multiplier for category "${cleanName}" must be a positive number.`
+        });
+      }
+
+      validatedCategories.push({
+        name: cleanName,
+        priceMultiplier: multiplier
+      });
+    }
+
+    // Generate seats based on layout grid configuration and custom categories
+    const seats = generateSeatLayout(rows, cols, validatedCategories);
 
     const venue = new Venue({
       name,
       location,
       rows,
       cols,
-      seatCategories: seatCategories || [],
+      seatCategories: validatedCategories,
       seats
     });
 

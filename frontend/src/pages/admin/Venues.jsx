@@ -7,6 +7,10 @@ export default function Venues() {
   const [location, setLocation] = useState('');
   const [rows, setRows] = useState('');
   const [cols, setCols] = useState('');
+  const [categories, setCategories] = useState([
+    { name: 'Premium', priceMultiplier: 1.5 },
+    { name: 'Standard', priceMultiplier: 1.0 }
+  ]);
   const [loading, setLoading] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,10 +34,35 @@ export default function Venues() {
     fetchVenues();
   }, []);
 
+  const handleAddCategory = () => {
+    setCategories([...categories, { name: '', priceMultiplier: 1.0 }]);
+  };
+
+  const handleRemoveCategory = (index) => {
+    if (categories.length === 1) {
+      setFormError('At least one seat category is required.');
+      return;
+    }
+    setCategories(categories.filter((_, i) => i !== index));
+  };
+
+  const handleCategoryChange = (index, field, value) => {
+    const updated = categories.map((cat, i) => {
+      if (i === index) {
+        return { 
+          ...cat, 
+          [field]: field === 'priceMultiplier' ? value : value 
+        };
+      }
+      return cat;
+    });
+    setCategories(updated);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name || !location || !rows || !cols) {
-      setFormError('Please fill in all fields.');
+      setFormError('Please fill in all general fields.');
       return;
     }
 
@@ -43,6 +72,39 @@ export default function Venues() {
     if (isNaN(rowsNum) || rowsNum <= 0 || isNaN(colsNum) || colsNum <= 0) {
       setFormError('Rows and columns must be positive numbers.');
       return;
+    }
+
+    // Validate seat categories
+    if (categories.length === 0) {
+      setFormError('At least one seat category is required.');
+      return;
+    }
+
+    const cleanCategories = [];
+    const categoryNamesSet = new Set();
+
+    for (const cat of categories) {
+      const cleanName = cat.name.trim();
+      if (!cleanName) {
+        setFormError('Seat category name cannot be empty.');
+        return;
+      }
+      if (categoryNamesSet.has(cleanName.toLowerCase())) {
+        setFormError(`Duplicate seat category name detected: ${cleanName}`);
+        return;
+      }
+      categoryNamesSet.add(cleanName.toLowerCase());
+
+      const multiplier = parseFloat(cat.priceMultiplier);
+      if (isNaN(multiplier) || multiplier <= 0) {
+        setFormError(`Price multiplier for "${cleanName}" must be a positive number.`);
+        return;
+      }
+
+      cleanCategories.push({
+        name: cleanName,
+        priceMultiplier: multiplier
+      });
     }
 
     try {
@@ -55,10 +117,7 @@ export default function Venues() {
         location,
         rows: rowsNum,
         cols: colsNum,
-        seatCategories: [
-          { name: 'Premium', priceMultiplier: 1.5 },
-          { name: 'Standard', priceMultiplier: 1.0 }
-        ]
+        seatCategories: cleanCategories
       };
 
       await venueService.createVenue(payload);
@@ -68,8 +127,12 @@ export default function Venues() {
       setLocation('');
       setRows('');
       setCols('');
+      setCategories([
+        { name: 'Premium', priceMultiplier: 1.5 },
+        { name: 'Standard', priceMultiplier: 1.0 }
+      ]);
       
-      // Refresh the list after success
+      // Refresh the venues list
       fetchVenues();
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to create venue.');
@@ -107,7 +170,7 @@ export default function Venues() {
               <label className="block text-sm font-medium text-gray-300 mb-1">Venue Name</label>
               <input
                 type="text"
-                placeholder="e.g. INOX Mall"
+                placeholder="e.g. PVR IMAX"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -119,7 +182,7 @@ export default function Venues() {
               <label className="block text-sm font-medium text-gray-300 mb-1">Location</label>
               <input
                 type="text"
-                placeholder="e.g. Mumbai, MH"
+                placeholder="e.g. New Delhi"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -132,7 +195,7 @@ export default function Venues() {
                 <label className="block text-sm font-medium text-gray-300 mb-1">Rows</label>
                 <input
                   type="number"
-                  placeholder="e.g. 5"
+                  placeholder="e.g. 10"
                   value={rows}
                   onChange={(e) => setRows(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -144,7 +207,7 @@ export default function Venues() {
                 <label className="block text-sm font-medium text-gray-300 mb-1">Columns</label>
                 <input
                   type="number"
-                  placeholder="e.g. 10"
+                  placeholder="e.g. 12"
                   value={cols}
                   onChange={(e) => setCols(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -153,16 +216,58 @@ export default function Venues() {
               </div>
             </div>
 
-            <div className="bg-slate-950 border border-slate-800 p-3 rounded-lg text-xs text-gray-400 space-y-1">
-              <span className="font-semibold text-gray-300 block mb-1">Default Seat Categories Included:</span>
-              <div className="flex justify-between"><span>Premium</span> <span>1.5x Price</span></div>
-              <div className="flex justify-between"><span>Standard</span> <span>1.0x Price</span></div>
+            {/* Custom Seat Categories */}
+            <div className="space-y-3 pt-2">
+              <div className="flex justify-between items-center">
+                <label className="block text-sm font-medium text-gray-300">Seat Categories</label>
+                <button
+                  type="button"
+                  onClick={handleAddCategory}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
+                  disabled={formLoading}
+                >
+                  + Add Category
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {categories.map((cat, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      placeholder="Category Name"
+                      value={cat.name}
+                      onChange={(e) => handleCategoryChange(index, 'name', e.target.value)}
+                      className="flex-grow min-w-0 px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-md text-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      disabled={formLoading}
+                    />
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="Multiplier"
+                      value={cat.priceMultiplier}
+                      onChange={(e) => handleCategoryChange(index, 'priceMultiplier', e.target.value)}
+                      className="w-20 px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-md text-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      disabled={formLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCategory(index)}
+                      className="p-1.5 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                      disabled={formLoading}
+                      title="Remove category"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={formLoading}
-              className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-lg shadow transition-colors disabled:opacity-50"
+              className="w-full py-2 mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-lg shadow transition-colors disabled:opacity-50 active:scale-[0.98]"
             >
               {formLoading ? 'Creating...' : 'Create Venue'}
             </button>
@@ -190,11 +295,25 @@ export default function Venues() {
               {venues.map((venue) => (
                 <div key={venue._id} className="bg-slate-900 border border-slate-800 p-5 rounded-xl shadow-sm flex flex-col justify-between">
                   <div>
-                    <h3 className="text-lg font-bold text-white">{venue.name}</h3>
+                    <div className="flex justify-between items-start">
+                      <h3 className="text-lg font-bold text-white leading-tight">{venue.name}</h3>
+                      <span className="text-[10px] bg-slate-950 px-2 py-0.5 rounded text-indigo-400 border border-slate-800 uppercase font-semibold">
+                        {venue.seatCategories?.length || 0} Cats
+                      </span>
+                    </div>
                     <p className="text-xs text-gray-400 mt-1 flex items-center">📍 {venue.location}</p>
+                    
+                    {/* Render Category badges */}
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      {venue.seatCategories?.map((cat, i) => (
+                        <span key={i} className="text-[10px] bg-slate-950 border border-slate-800 text-gray-300 px-1.5 py-0.5 rounded">
+                          {cat.name} ({cat.priceMultiplier}x)
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   <div className="border-t border-slate-800 pt-3 mt-4 flex justify-between items-center text-xs text-gray-400">
-                    <span>Layout: <strong className="text-white">{venue.rows}x{venue.cols}</strong></span>
+                    <span>Grid: <strong className="text-white">{venue.rows}x{venue.cols}</strong></span>
                     <span className="bg-indigo-900/40 text-indigo-300 border border-indigo-850 px-2 py-0.5 rounded">
                       {venue.seats?.length || (venue.rows * venue.cols)} seats
                     </span>
