@@ -1,4 +1,5 @@
 const Venue = require('../models/Venue');
+const { generateSeatLayout } = require('../utils/seatGenerator');
 
 /**
  * Create a new Venue
@@ -24,12 +25,16 @@ const createVenue = async (req, res) => {
       });
     }
 
+    // Generate seats based on layout grid configuration and categories
+    const seats = generateSeatLayout(rows, cols, seatCategories);
+
     const venue = new Venue({
       name,
       location,
       rows,
       cols,
-      seatCategories: seatCategories || []
+      seatCategories: seatCategories || [],
+      seats
     });
 
     await venue.save();

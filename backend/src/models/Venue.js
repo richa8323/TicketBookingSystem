@@ -13,6 +13,25 @@ const seatCategorySchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+const seatSchema = new mongoose.Schema({
+  seatId: {
+    type: String,
+    required: [true, 'Seat ID is required']
+  },
+  row: {
+    type: String,
+    required: [true, 'Seat row label is required']
+  },
+  number: {
+    type: Number,
+    required: [true, 'Seat number is required']
+  },
+  category: {
+    type: String,
+    required: [true, 'Seat category is required']
+  }
+}, { _id: false });
+
 const venueSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -34,7 +53,8 @@ const venueSchema = new mongoose.Schema({
     required: [true, 'Number of columns is required'],
     min: [1, 'Columns must be at least 1']
   },
-  seatCategories: [seatCategorySchema]
+  seatCategories: [seatCategorySchema],
+  seats: [seatSchema]
 }, {
   timestamps: true
 });
