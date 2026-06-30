@@ -35,6 +35,18 @@ export default function Header() {
           >
             Events
           </NavLink>
+
+          {/* Conditional Admin Links */}
+          {user && user.role === 'Admin' && (
+            <NavLink 
+              to="/admin/venues" 
+              className={({ isActive }) => 
+                isActive ? "text-indigo-400 font-semibold" : "text-gray-300 hover:text-white transition-colors"
+              }
+            >
+              Manage Venues
+            </NavLink>
+          )}
           
           {user ? (
             <div className="flex items-center space-x-4">
