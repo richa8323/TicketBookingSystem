@@ -117,7 +117,53 @@ const createEvent = async (req, res) => {
  */
 const getEvents = async (req, res) => {
   try {
-    const events = await Event.find().populate('venue');
+    const { search, venue, date } = req.query;
+    const filterQuery = {};
+
+    // 1. Title Search (case-insensitive regex match)
+    if (search) {
+      filterQuery.title = { $regex: search, $options: 'i' };
+    }
+
+    // 2. Venue ID Filter (validate ObjectId format)
+    if (venue) {
+      const mongoose = require('mongoose');
+      if (!mongoose.Types.ObjectId.isValid(venue)) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Invalid venue ID format.'
+        });
+      }
+      filterQuery.venue = venue;
+    }
+
+    // 3. Date Filter (matches events on the specific day)
+    if (date) {
+      const eventDate = new Date(date);
+      if (isNaN(eventDate.getTime())) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Invalid date format. Please use YYYY-MM-DD.'
+        });
+      }
+      
+      const startOfDay = new Date(eventDate);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(eventDate);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+
+      filterQuery.date = {
+        $gte: startOfDay,
+        $lte: endOfDay
+      };
+    }
+
+    // Fetch and sort chronologically by date ascending
+    const events = await Event.find(filterQuery)
+      .sort({ date: 1 })
+      .populate('venue');
+
     return res.status(200).json({
       status: 'success',
       results: events.length,
