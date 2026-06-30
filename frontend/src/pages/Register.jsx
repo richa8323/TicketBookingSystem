@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -7,15 +8,37 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Customer');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name || !email || !password) {
       setError('Please fill in all fields.');
       return;
     }
-    setError('');
-    alert(`UI Mockup: Sign-up requested as ${role}. Integration with backend will occur in a later commit.`);
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    try {
+      setError('');
+      setLoading(true);
+      const result = await register(name, email, password, role);
+      setLoading(false);
+
+      if (result.success) {
+        alert('Registration successful! Please sign in with your credentials.');
+        navigate('/login');
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setLoading(false);
+      setError('An unexpected error occurred. Please try again.');
+    }
   };
 
   return (
@@ -34,7 +57,7 @@ export default function Register() {
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center">
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center animate-pulse">
             {error}
           </div>
         )}
@@ -54,6 +77,7 @@ export default function Register() {
                 onChange={(e) => setName(e.target.value)}
                 className="appearance-none relative block w-full px-3 py-2 border border-slate-700 placeholder-gray-500 text-white bg-slate-950/70 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
                 placeholder="John Doe"
+                disabled={loading}
               />
             </div>
             <div>
@@ -70,6 +94,7 @@ export default function Register() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="appearance-none relative block w-full px-3 py-2 border border-slate-700 placeholder-gray-500 text-white bg-slate-950/70 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
                 placeholder="you@example.com"
+                disabled={loading}
               />
             </div>
             <div>
@@ -85,6 +110,7 @@ export default function Register() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="appearance-none relative block w-full px-3 py-2 border border-slate-700 placeholder-gray-500 text-white bg-slate-950/70 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
                 placeholder="••••••••"
+                disabled={loading}
               />
             </div>
             <div>
@@ -97,6 +123,7 @@ export default function Register() {
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 className="block w-full px-3 py-2 border border-slate-700 text-white bg-slate-950/70 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
+                disabled={loading}
               >
                 <option value="Customer">Customer</option>
                 <option value="Organiser">Organiser</option>
@@ -107,9 +134,12 @@ export default function Register() {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-lg shadow-indigo-600/30 transition-all active:scale-[0.98]"
+              disabled={loading}
+              className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-lg shadow-indigo-600/30 transition-all ${
+                loading ? 'opacity-50 cursor-wait active:scale-100' : 'active:scale-[0.98]'
+              }`}
             >
-              Sign Up
+              {loading ? 'Creating Account...' : 'Sign Up'}
             </button>
           </div>
         </form>
