@@ -1,70 +1,119 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 export default function Register() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('Customer');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!name || !email || !password) {
+      setError('Please fill in all fields.');
+      return;
+    }
+    setError('');
+    alert(`UI Mockup: Sign-up requested as ${role}. Integration with backend will occur in a later commit.`);
+  };
+
   return (
-    <div className="max-w-md w-full mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl mt-10">
-      <h2 className="text-3xl font-bold text-center text-white mb-6">Create Account</h2>
-      <p className="text-gray-400 text-sm text-center mb-8">
-        Join us and get tickets to your favorite events.
-      </p>
-      
-      <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+    <div className="flex min-h-[70vh] items-center justify-center px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8 bg-slate-900/60 backdrop-blur-xl border border-slate-800 p-8 rounded-2xl shadow-2xl">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
-          <input 
-            type="text" 
-            placeholder="John Doe" 
-            className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-            disabled
-          />
+          <h2 className="mt-6 text-center text-3xl font-extrabold tracking-tight text-white">
+            Create an Account
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-400">
+            Already have an account?{' '}
+            <Link to="/login" className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
+              Sign in
+            </Link>
+          </p>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
-          <input 
-            type="email" 
-            placeholder="you@example.com" 
-            className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-            disabled
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
-          <input 
-            type="password" 
-            placeholder="••••••••" 
-            className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-            disabled
-          />
-        </div>
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center">
+            {error}
+          </div>
+        )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Register As</label>
-          <select 
-            className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-            disabled
-          >
-            <option value="Customer">Customer</option>
-            <option value="Organiser">Organiser</option>
-          </select>
-        </div>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4 rounded-md shadow-sm">
+            <div>
+              <label htmlFor="full-name" className="block text-sm font-medium text-gray-300 mb-1">
+                Full Name
+              </label>
+              <input
+                id="full-name"
+                name="name"
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="appearance-none relative block w-full px-3 py-2 border border-slate-700 placeholder-gray-500 text-white bg-slate-950/70 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
+                placeholder="John Doe"
+              />
+            </div>
+            <div>
+              <label htmlFor="email-address" className="block text-sm font-medium text-gray-300 mb-1">
+                Email Address
+              </label>
+              <input
+                id="email-address"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="appearance-none relative block w-full px-3 py-2 border border-slate-700 placeholder-gray-500 text-white bg-slate-950/70 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
+                placeholder="you@example.com"
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="appearance-none relative block w-full px-3 py-2 border border-slate-700 placeholder-gray-500 text-white bg-slate-950/70 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
+                placeholder="••••••••"
+              />
+            </div>
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-300 mb-1">
+                Register As
+              </label>
+              <select
+                id="role"
+                name="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="block w-full px-3 py-2 border border-slate-700 text-white bg-slate-950/70 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
+              >
+                <option value="Customer">Customer</option>
+                <option value="Organiser">Organiser</option>
+              </select>
+            </div>
+          </div>
 
-        <button 
-          type="submit" 
-          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-lg shadow-md transition-colors cursor-not-allowed opacity-50"
-          disabled
-        >
-          Sign Up
-        </button>
-      </form>
-
-      <p className="mt-8 text-center text-sm text-gray-400">
-        Already have an account?{' '}
-        <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors">
-          Sign In
-        </Link>
-      </p>
+          <div>
+            <button
+              type="submit"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-lg shadow-indigo-600/30 transition-all active:scale-[0.98]"
+            >
+              Sign Up
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

@@ -1,49 +1,108 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError('Please fill in all fields.');
+      return;
+    }
+    setError('');
+    alert('UI Mockup: Sign-in requested. Integration with backend will occur in a later commit.');
+  };
+
   return (
-    <div className="max-w-md w-full mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl mt-10">
-      <h2 className="text-3xl font-bold text-center text-white mb-6">Sign In</h2>
-      <p className="text-gray-400 text-sm text-center mb-8">
-        Welcome back! Please enter your details.
-      </p>
-      
-      <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+    <div className="flex min-h-[70vh] items-center justify-center px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8 bg-slate-900/60 backdrop-blur-xl border border-slate-800 p-8 rounded-2xl shadow-2xl">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
-          <input 
-            type="email" 
-            placeholder="you@example.com" 
-            className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-            disabled
-          />
+          <h2 className="mt-6 text-center text-3xl font-extrabold tracking-tight text-white">
+            Welcome Back
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-400">
+            Or{' '}
+            <Link to="/register" className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
+              create a new account
+            </Link>
+          </p>
         </div>
         
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
-          <input 
-            type="password" 
-            placeholder="••••••••" 
-            className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-            disabled
-          />
-        </div>
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center">
+            {error}
+          </div>
+        )}
 
-        <button 
-          type="submit" 
-          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-lg shadow-md transition-colors cursor-not-allowed opacity-50"
-          disabled
-        >
-          Sign In
-        </button>
-      </form>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4 rounded-md shadow-sm">
+            <div>
+              <label htmlFor="email-address" className="block text-sm font-medium text-gray-300 mb-1">
+                Email Address
+              </label>
+              <input
+                id="email-address"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="appearance-none relative block w-full px-3 py-2 border border-slate-700 placeholder-gray-500 text-white bg-slate-950/70 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
+                placeholder="you@example.com"
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="appearance-none relative block w-full px-3 py-2 border border-slate-700 placeholder-gray-500 text-white bg-slate-950/70 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
 
-      <p className="mt-8 text-center text-sm text-gray-400">
-        Don't have an account?{' '}
-        <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors">
-          Sign Up
-        </Link>
-      </p>
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-700 rounded bg-slate-950"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-300">
+                Remember me
+              </label>
+            </div>
+
+            <div className="text-sm">
+              <a href="#" className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors">
+                Forgot password?
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-lg shadow-indigo-600/30 transition-all active:scale-[0.98]"
+            >
+              Sign In
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
