@@ -38,14 +38,24 @@ export default function Header() {
 
           {/* Conditional Admin Links */}
           {user && user.role === 'Admin' && (
-            <NavLink 
-              to="/admin/venues" 
-              className={({ isActive }) => 
-                isActive ? "text-indigo-400 font-semibold" : "text-gray-300 hover:text-white transition-colors"
-              }
-            >
-              Manage Venues
-            </NavLink>
+            <>
+              <NavLink 
+                to="/admin/venues" 
+                className={({ isActive }) => 
+                  isActive ? "text-indigo-400 font-semibold" : "text-gray-300 hover:text-white transition-colors"
+                }
+              >
+                Manage Venues
+              </NavLink>
+              <NavLink 
+                to="/admin/events" 
+                className={({ isActive }) => 
+                  isActive ? "text-indigo-400 font-semibold" : "text-gray-300 hover:text-white transition-colors"
+                }
+              >
+                Manage Events
+              </NavLink>
+            </>
           )}
           
           {user ? (

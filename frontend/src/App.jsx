@@ -8,6 +8,7 @@ import Events from './pages/Events';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import Venues from './pages/admin/Venues';
+import AdminEvents from './pages/admin/Events';
 
 function App() {
   return (
@@ -26,6 +27,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['Admin']}>
                   <Venues />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="admin/events" 
+              element={
+                <ProtectedRoute allowedRoles={['Admin']}>
+                  <AdminEvents />
                 </ProtectedRoute>
               } 
             />
