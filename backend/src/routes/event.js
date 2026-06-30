@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createEvent, getEvents, getEventById } = require('../controllers/event');
+const { createEvent, getEvents, getEventById, updateEvent, deleteEvent } = require('../controllers/event');
 const { protect, authorize } = require('../middlewares/auth');
 
 // All event routes require standard JWT verification
@@ -11,6 +11,8 @@ router.route('/')
   .get(getEvents);
 
 router.route('/:id')
-  .get(getEventById);
+  .get(getEventById)
+  .patch(authorize('Admin'), updateEvent)
+  .delete(authorize('Admin'), deleteEvent);
 
 module.exports = router;
