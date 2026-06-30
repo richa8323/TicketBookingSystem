@@ -6,6 +6,7 @@ const { connectDB, closeDB } = require('./config/database');
 
 const authRoutes = require('./routes/auth');
 const venueRoutes = require('./routes/venue');
+const eventRoutes = require('./routes/event');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -16,6 +17,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/venues', venueRoutes);
+app.use('/api/events', eventRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is up and running' });
