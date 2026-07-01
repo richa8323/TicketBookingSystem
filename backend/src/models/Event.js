@@ -22,6 +22,15 @@ const eventSeatSchema = new mongoose.Schema({
     required: true,
     enum: ['available', 'reserved', 'booked'],
     default: 'available'
+  },
+  reservedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  reservedAt: {
+    type: Date,
+    default: null
   }
 }, { _id: false });
 

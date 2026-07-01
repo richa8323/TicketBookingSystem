@@ -1,5 +1,6 @@
 const Event = require('../models/Event');
 const Venue = require('../models/Venue');
+const mongoose = require('mongoose');
 
 /**
  * Helper to parse HH:MM strings into numeric minutes for duration comparisons
@@ -9,6 +10,36 @@ const Venue = require('../models/Venue');
 const timeToMinutes = (timeStr) => {
   const parts = timeStr.split(':');
   return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+};
+
+/**
+ * Helper to release stale seat reservations (older than 5 minutes) for a specific event.
+ * Scoped by eventId for performance optimization.
+ * @param {string} eventId
+ */
+const expireStaleReservations = async (eventId) => {
+  try {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    await Event.updateOne(
+      { 
+        _id: eventId,
+        "seats.status": "reserved", 
+        "seats.reservedAt": { $lt: fiveMinutesAgo } 
+      },
+      { 
+        $set: { 
+          "seats.$[elem].status": "available",
+          "seats.$[elem].reservedBy": null,
+          "seats.$[elem].reservedAt": null
+        } 
+      },
+      { 
+        arrayFilters: [{ "elem.status": "reserved", "elem.reservedAt": { $lt: fiveMinutesAgo } }] 
+      }
+    );
+  } catch (err) {
+    console.error(`Failed to expire stale reservations for event ${eventId}:`, err);
+  }
 };
 
 /**
@@ -127,7 +158,6 @@ const getEvents = async (req, res) => {
 
     // 2. Venue ID Filter (validate ObjectId format)
     if (venue) {
-      const mongoose = require('mongoose');
       if (!mongoose.Types.ObjectId.isValid(venue)) {
         return res.status(400).json({
           status: 'fail',
@@ -184,7 +214,12 @@ const getEvents = async (req, res) => {
  */
 const getEventById = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id).populate('venue');
+    const eventId = req.params.id;
+
+    // Prune stale holds specifically for this event ID
+    await expireStaleReservations(eventId);
+
+    const event = await Event.findById(eventId).populate('venue');
     if (!event) {
       return res.status(404).json({
         status: 'fail',
@@ -387,10 +422,116 @@ const deleteEvent = async (req, res) => {
   }
 };
 
+/**
+ * Temporary seat reservation (Seat Lock)
+ * @route POST /api/events/:id/reserve
+ * @access Private (Customer only)
+ */
+const reserveSeats = async (req, res) => {
+  try {
+    const eventId = req.params.id;
+    const { seatIds } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Invalid event ID format.'
+      });
+    }
+
+    if (!seatIds || !Array.isArray(seatIds) || seatIds.length === 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'At least one seat ID must be provided to reserve.'
+      });
+    }
+
+    // Prune stale holds specifically for this event ID
+    await expireStaleReservations(eventId);
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Event not found.'
+      });
+    }
+
+    // Check if all requested seat IDs exist in the event
+    const requestedSeats = event.seats.filter(s => seatIds.includes(s.seatId));
+    if (requestedSeats.length !== seatIds.length) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Some of the selected seats do not exist in this venue.'
+      });
+    }
+
+    // Verify availability
+    const unavailableSeats = requestedSeats.filter(s => s.status !== 'available');
+    if (unavailableSeats.length > 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: `The following seats are already reserved or booked: ${unavailableSeats.map(s => s.seatId).join(', ')}`
+      });
+    }
+
+    // Concurrency Safe Atomic Update
+    const query = {
+      _id: eventId,
+      seats: {
+        $all: seatIds.map(id => ({
+          $elemMatch: { seatId: id, status: 'available' }
+        }))
+      }
+    };
+
+    const update = {
+      $set: {
+        "seats.$[elem].status": "reserved",
+        "seats.$[elem].reservedBy": req.user._id,
+        "seats.$[elem].reservedAt": new Date()
+      }
+    };
+
+    const options = {
+      arrayFilters: [
+        {
+          "elem.seatId": { $in: seatIds },
+          "elem.status": "available"
+        }
+      ],
+      new: true
+    };
+
+    const updatedEvent = await Event.findOneAndUpdate(query, update, options);
+    if (!updatedEvent) {
+      return res.status(409).json({
+        status: 'fail',
+        message: 'Reservation conflict. One or more seats were locked by another user. Please choose different seats.'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        reservedSeats: seatIds,
+        expiresInSeconds: 300
+      }
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   createEvent,
   getEvents,
   getEventById,
   updateEvent,
-  deleteEvent
+  deleteEvent,
+  reserveSeats
 };
