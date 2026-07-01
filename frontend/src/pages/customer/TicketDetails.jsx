@@ -7,6 +7,9 @@ export default function TicketDetails() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelSuccess, setCancelSuccess] = useState('');
+  const [cancelError, setCancelError] = useState('');
 
   const fetchTicketDetails = async () => {
     try {
@@ -31,6 +34,33 @@ export default function TicketDetails() {
   useEffect(() => {
     fetchTicketDetails();
   }, [bookingId]);
+
+  const handleCancelBooking = async () => {
+    if (!window.confirm('Are you sure you want to cancel this booking? This will release your seats immediately.')) {
+      return;
+    }
+    try {
+      setCancelLoading(true);
+      setCancelSuccess('');
+      setCancelError('');
+      
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      
+      const response = await axios.patch(
+        `${API_BASE}/api/bookings/${bookingId}/cancel`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setCancelSuccess(response.data.message || 'Booking cancelled successfully.');
+      fetchTicketDetails();
+    } catch (err) {
+      setCancelError(err.response?.data?.message || 'Failed to cancel this booking.');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -92,13 +122,42 @@ export default function TicketDetails() {
         <Link to="/customer/bookings" className="text-sm text-indigo-400 hover:text-indigo-300 font-semibold transition-colors">
           ← Back to Booking History
         </Link>
-        <button 
-          onClick={() => window.print()}
-          className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow transition-all active:scale-[0.98]"
-        >
-          Print Ticket
-        </button>
+        <div className="flex gap-3">
+          {booking.status === 'confirmed' && (
+            <button
+              disabled={cancelLoading}
+              onClick={handleCancelBooking}
+              className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold text-xs rounded-xl shadow transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              {cancelLoading ? 'Cancelling...' : 'Cancel Ticket'}
+            </button>
+          )}
+          {booking.status !== 'cancelled' && (
+            <button 
+              onClick={() => window.print()}
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow transition-all active:scale-[0.98]"
+            >
+              Print Ticket
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Cancellation Alerts */}
+      {(cancelError || cancelSuccess) && (
+        <div className="space-y-3 print-hidden">
+          {cancelError && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3.5 rounded-xl text-xs">
+              {cancelError}
+            </div>
+          )}
+          {cancelSuccess && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3.5 rounded-xl text-xs">
+              {cancelSuccess}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Ticket Voucher Stub */}
       <div className="ticket-voucher bg-slate-900 border-2 border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-800">

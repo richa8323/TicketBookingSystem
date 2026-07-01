@@ -233,8 +233,128 @@ const getBookingById = async (req, res) => {
   }
 };
 
+/**
+ * Cancel a confirmed booking and release seats
+ * @route PATCH /api/bookings/:id/cancel
+ * @access Private (Customer only)
+ */
+const cancelBooking = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Invalid booking ID format."
+      });
+    }
+
+    const booking = await Booking.findById(bookingId).populate("event");
+
+    if (!booking) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Booking not found."
+      });
+    }
+
+    if (booking.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        status: "fail",
+        message: "You do not have permission to cancel this booking."
+      });
+    }
+
+    if (booking.status === "cancelled") {
+      return res.status(409).json({
+        status: "fail",
+        message: "Booking is already cancelled."
+      });
+    }
+
+    if (booking.status !== "confirmed") {
+      return res.status(400).json({
+        status: "fail",
+        message: "Only confirmed bookings can be cancelled."
+      });
+    }
+
+    const eventDate = new Date(booking.event.date);
+    const [hours, minutes] = booking.event.endTime.split(":");
+    let hrs = parseInt(hours, 10);
+    let mins = parseInt(minutes, 10);
+    if (booking.event.endTime.toLowerCase().includes("pm") && hrs < 12) hrs += 12;
+    if (booking.event.endTime.toLowerCase().includes("am") && hrs === 12) hrs = 0;
+    
+    const eventEndDateTime = new Date(eventDate);
+    eventEndDateTime.setHours(hrs, mins, 0, 0);
+
+    if (new Date() > eventEndDateTime) {
+      return res.status(409).json({
+        status: "fail",
+        message: "Past events cannot be cancelled."
+      });
+    }
+
+    const updatedBooking = await Booking.findOneAndUpdate(
+      {
+        _id: bookingId,
+        user: req.user._id,
+        status: "confirmed"
+      },
+      {
+        $set: { status: "cancelled" }
+      },
+      {
+        new: true
+      }
+    );
+
+    if (!updatedBooking) {
+      return res.status(409).json({
+        status: "fail",
+        message: "Booking is already cancelled."
+      });
+    }
+
+    try {
+      await Event.updateOne(
+        { _id: booking.event._id },
+        {
+          $set: {
+            "seats.$[elem].status": "available",
+            "seats.$[elem].reservedBy": null,
+            "seats.$[elem].reservedAt": null
+          }
+        },
+        {
+          arrayFilters: [{ "elem.seatId": { $in: booking.seats } }]
+        }
+      );
+    } catch (dbError) {
+      await Booking.updateOne(
+        { _id: bookingId },
+        { $set: { status: "confirmed" } }
+      );
+      throw dbError;
+    }
+
+    return res.status(200).json({
+      status: "success",
+      message: "Booking cancelled successfully."
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: "error",
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   createBooking,
   getMyBookings,
-  getBookingById
+  getBookingById,
+  cancelBooking
 };

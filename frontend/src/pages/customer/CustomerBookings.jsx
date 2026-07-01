@@ -95,7 +95,9 @@ export default function CustomerBookings() {
           return (
             <div 
               key={booking._id} 
-              className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-lg hover:border-slate-700 transition-all"
+              className={`bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-lg hover:border-slate-700 transition-all ${
+                !isConfirmed ? 'opacity-55 border-dashed border-slate-800' : ''
+              }`}
             >
               {/* Left Column: Event details (Main ticket stub) */}
               <div className="flex-grow p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-800 space-y-4">
