@@ -511,6 +511,21 @@ const reserveSeats = async (req, res) => {
       });
     }
 
+    const { getIO } = require('../utils/socket');
+    const io = getIO();
+    if (io) {
+      const updatedSeats = seatIds.map(id => ({
+        seatId: id,
+        status: 'reserved',
+        reservedBy: req.user._id,
+        reservedAt: new Date()
+      }));
+      io.to(`event_${eventId}`).emit('seatStatusUpdate', {
+        eventId,
+        seats: updatedSeats
+      });
+    }
+
     return res.status(200).json({
       status: 'success',
       data: {

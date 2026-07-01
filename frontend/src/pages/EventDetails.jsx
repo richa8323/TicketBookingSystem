@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
 
 export default function EventDetails() {
@@ -40,6 +41,49 @@ export default function EventDetails() {
   useEffect(() => {
     setLoading(true);
     fetchEventDetails();
+  }, [eventId]);
+
+  // Real-time seat updates via Socket.io
+  useEffect(() => {
+    if (!eventId) return;
+
+    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const socket = io(API_BASE);
+
+    socket.on('connect', () => {
+      socket.emit('joinEventRoom', { eventId });
+    });
+
+    socket.on('seatStatusUpdate', (payload) => {
+      if (payload.eventId?.toString() === eventId) {
+        setEvent(prevEvent => {
+          if (!prevEvent) return prevEvent;
+          
+          const updatedSeats = prevEvent.seats.map(seat => {
+            const match = payload.seats.find(s => s.seatId === seat.seatId);
+            if (match) {
+              return {
+                ...seat,
+                status: match.status,
+                reservedBy: match.reservedBy !== undefined ? match.reservedBy : seat.reservedBy,
+                reservedAt: match.reservedAt !== undefined ? match.reservedAt : seat.reservedAt
+              };
+            }
+            return seat;
+          });
+          
+          return {
+            ...prevEvent,
+            seats: updatedSeats
+          };
+        });
+      }
+    });
+
+    return () => {
+      socket.off('seatStatusUpdate');
+      socket.disconnect();
+    };
   }, [eventId]);
 
   // Countdown timer logic

@@ -7,25 +7,52 @@ async function runCleanupLoop() {
   try {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     
-    const result = await Event.updateMany(
-      { 
-        "seats.status": "reserved", 
-        "seats.reservedAt": { $lt: fiveMinutesAgo } 
-      },
-      { 
-        $set: { 
-          "seats.$[elem].status": "available",
-          "seats.$[elem].reservedBy": null,
-          "seats.$[elem].reservedAt": null
-        } 
-      },
-      { 
-        arrayFilters: [{ "elem.status": "reserved", "elem.reservedAt": { $lt: fiveMinutesAgo } }] 
-      }
-    );
+    // 1. Query events having stale seat reservations
+    const staleEvents = await Event.find({
+      "seats.status": "reserved", 
+      "seats.reservedAt": { $lt: fiveMinutesAgo }
+    });
 
-    if (result.modifiedCount > 0) {
-      console.log(`[Cleanup Worker] Releasing stale reservations: ${result.modifiedCount} events updated.`);
+    for (const event of staleEvents) {
+      // 2. Identify the specific seatIds that are stale
+      const staleSeatIds = event.seats
+        .filter(s => s.status === 'reserved' && s.reservedAt < fiveMinutesAgo)
+        .map(s => s.seatId);
+
+      if (staleSeatIds.length > 0) {
+        // 3. Atomically release seats for this event
+        await Event.updateOne(
+          { _id: event._id },
+          { 
+            $set: { 
+              "seats.$[elem].status": "available",
+              "seats.$[elem].reservedBy": null,
+              "seats.$[elem].reservedAt": null
+            } 
+          },
+          { 
+            arrayFilters: [{ "elem.seatId": { $in: staleSeatIds } }] 
+          }
+        );
+
+        console.log(`[Cleanup Worker] Released ${staleSeatIds.length} stale seats for event ${event._id}`);
+
+        // 4. Emit real-time releases via Socket.io
+        const { getIO } = require('../utils/socket');
+        const io = getIO();
+        if (io) {
+          const releasedSeats = staleSeatIds.map(id => ({
+            seatId: id,
+            status: 'available',
+            reservedBy: null,
+            reservedAt: null
+          }));
+          io.to(`event_${event._id}`).emit('seatStatusUpdate', {
+            eventId: event._id.toString(),
+            seats: releasedSeats
+          });
+        }
+      }
     }
   } catch (err) {
     console.error('[Cleanup Worker] Error during lock sweep execution:', err);

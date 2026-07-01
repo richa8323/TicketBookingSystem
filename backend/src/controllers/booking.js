@@ -125,6 +125,19 @@ const createBooking = async (req, res) => {
 
       await booking.save();
 
+      const { getIO } = require('../utils/socket');
+      const io = getIO();
+      if (io) {
+        const updatedSeats = seatIds.map(id => ({
+          seatId: id,
+          status: 'booked'
+        }));
+        io.to(`event_${eventId}`).emit('seatStatusUpdate', {
+          eventId,
+          seats: updatedSeats
+        });
+      }
+
       return res.status(200).json({
         status: 'success',
         data: { booking }
@@ -331,6 +344,21 @@ const cancelBooking = async (req, res) => {
           arrayFilters: [{ "elem.seatId": { $in: booking.seats } }]
         }
       );
+
+      const { getIO } = require('../utils/socket');
+      const io = getIO();
+      if (io) {
+        const updatedSeats = booking.seats.map(id => ({
+          seatId: id,
+          status: 'available',
+          reservedBy: null,
+          reservedAt: null
+        }));
+        io.to(`event_${booking.event._id}`).emit('seatStatusUpdate', {
+          eventId: booking.event._id,
+          seats: updatedSeats
+        });
+      }
     } catch (dbError) {
       await Booking.updateOne(
         { _id: bookingId },

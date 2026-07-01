@@ -37,6 +37,26 @@ const startServer = async () => {
     console.log(`Server is running on port ${PORT}`);
   });
 
+  const socketIO = require('socket.io');
+  const io = socketIO(server, {
+    cors: {
+      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+      methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE']
+    }
+  });
+
+  const { setIO } = require('./utils/socket');
+  setIO(io);
+
+  io.on('connection', (socket) => {
+    socket.on('joinEventRoom', ({ eventId }) => {
+      socket.join(`event_${eventId}`);
+    });
+
+    socket.on('disconnect', () => {
+    });
+  });
+
   // Graceful shutdown
   const handleShutdown = async (signal) => {
     console.log(`Received ${signal}. Shutting down gracefully...`);
