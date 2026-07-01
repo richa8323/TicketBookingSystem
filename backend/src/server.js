@@ -48,6 +48,9 @@ const startServer = async () => {
   const { setIO } = require('./utils/socket');
   setIO(io);
 
+  const startCleanupWorker = require('./workers/cleanupWorker');
+  startCleanupWorker();
+
   io.on('connection', (socket) => {
     socket.on('joinEventRoom', ({ eventId }) => {
       socket.join(`event_${eventId}`);

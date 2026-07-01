@@ -1,9 +1,12 @@
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../../.env') });
-const { connectDB } = require('../config/database');
 const Event = require('../models/Event');
+const { getIO } = require('../utils/socket');
+
+let isRunning = false;
 
 async function runCleanupLoop() {
+  if (isRunning) return;
+  isRunning = true;
+
   try {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     
@@ -38,7 +41,6 @@ async function runCleanupLoop() {
         console.log(`[Cleanup Worker] Released ${staleSeatIds.length} stale seats for event ${event._id}`);
 
         // 4. Emit real-time releases via Socket.io
-        const { getIO } = require('../utils/socket');
         const io = getIO();
         if (io) {
           const releasedSeats = staleSeatIds.map(id => ({
@@ -57,15 +59,18 @@ async function runCleanupLoop() {
   } catch (err) {
     console.error('[Cleanup Worker] Error during lock sweep execution:', err);
   } finally {
-    setTimeout(runCleanupLoop, 60000);
+    isRunning = false;
   }
 }
 
-// Start database connection and kick off loop
-const init = async () => {
-  await connectDB();
-  console.log('[Cleanup Worker] Background reservation cleanup worker initialized.');
+function startCleanupWorker() {
+  console.log('[Cleanup Worker] Background reservation cleanup worker initialized (same-process).');
+  
+  // Run immediately on boot
   runCleanupLoop();
-};
+  
+  // Schedule to execute at stable 60-second intervals
+  setInterval(runCleanupLoop, 60000);
+}
 
-init();
+module.exports = startCleanupWorker;
