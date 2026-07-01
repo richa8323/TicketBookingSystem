@@ -36,6 +36,18 @@ export default function Header() {
             Events
           </NavLink>
 
+          {/* Conditional Admin/Organiser Dashboard Link */}
+          {user && (user.role === 'Admin' || user.role === 'Organiser') && (
+            <NavLink 
+              to="/admin/dashboard" 
+              className={({ isActive }) => 
+                isActive ? "text-indigo-400 font-semibold" : "text-gray-300 hover:text-white transition-colors"
+              }
+            >
+              Dashboard
+            </NavLink>
+          )}
+
           {/* Conditional Admin Links */}
           {user && user.role === 'Admin' && (
             <>

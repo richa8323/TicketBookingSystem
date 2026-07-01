@@ -12,6 +12,7 @@ import AdminEvents from './pages/admin/Events';
 import EventDetails from './pages/EventDetails';
 import CustomerBookings from './pages/customer/CustomerBookings';
 import TicketDetails from './pages/customer/TicketDetails';
+import Dashboard from './pages/admin/Dashboard';
 
 function App() {
   return (
@@ -44,6 +45,14 @@ function App() {
             />
             
             {/* Protected Admin Routes */}
+            <Route 
+              path="admin/dashboard" 
+              element={
+                <ProtectedRoute allowedRoles={['Admin', 'Organiser']}>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
             <Route 
               path="admin/venues" 
               element={

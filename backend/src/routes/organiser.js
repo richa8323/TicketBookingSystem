@@ -1,12 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getOrganiserDashboardStats, getOrganiserEvents } = require('../controllers/organiser');
+const { getDashboardAnalytics, getOrganiserEvents } = require('../controllers/organiser');
 const { protect, authorize } = require('../middlewares/auth');
 
-// All organiser dashboard routes require standard protect and role check
-router.use(protect, authorize('Organiser'));
-
-router.get('/dashboard', getOrganiserDashboardStats);
-router.get('/events', getOrganiserEvents);
+// Scoped endpoints with distinct role rules
+router.get('/dashboard', protect, authorize('Admin', 'Organiser'), getDashboardAnalytics);
+router.get('/events', protect, authorize('Organiser'), getOrganiserEvents);
 
 module.exports = router;
