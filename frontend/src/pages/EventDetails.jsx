@@ -19,6 +19,7 @@ export default function EventDetails() {
   // Timer States
   const [reservationExpiry, setReservationExpiry] = useState(null);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [bookingSuccess, setBookingSuccess] = useState(null);
 
   const fetchEventDetails = async () => {
     try {
@@ -151,6 +152,40 @@ export default function EventDetails() {
       fetchEventDetails();
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to reserve selected seats.');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // Confirm and Book Handler
+  const handleConfirmBooking = async () => {
+    if (selectedSeats.length === 0 || !reservationExpiry) return;
+    try {
+      setFormLoading(true);
+      setFormError('');
+      
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      
+      const response = await axios.post(
+        `${API_BASE}/api/bookings`,
+        {
+          eventId,
+          seatIds: selectedSeats.map(s => s.seatId)
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setBookingSuccess(response.data.data.booking);
+      setReservationExpiry(null);
+      setSelectedSeats([]);
+      setSuccess('');
+      fetchEventDetails();
+    } catch (err) {
+      setFormError(err.response?.data?.message || 'Booking confirmation failed.');
+      setReservationExpiry(null);
+      setSelectedSeats([]);
+      setSuccess('');
     } finally {
       setFormLoading(false);
     }
@@ -314,98 +349,155 @@ export default function EventDetails() {
           </div>
         </div>
 
-        {/* Checkout Summary Pane */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl h-fit flex flex-col justify-between space-y-6">
-          <div>
-            <h2 className="text-xl font-bold text-white mb-2">Booking Summary</h2>
-            <p className="text-gray-400 text-xs">Review your selected seat positions and pricing.</p>
-            
-            {formError && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs mt-4">
-                {formError}
+        {/* Checkout Summary / Booking Success Card */}
+        {bookingSuccess ? (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl h-fit flex flex-col justify-between space-y-6">
+            <div className="text-center space-y-4 py-4">
+              <div className="mx-auto w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-3xl">
+                ✓
               </div>
-            )}
-
-            {success && (
-              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-xs mt-4">
-                {success}
+              <div>
+                <h2 className="text-2xl font-bold text-white">Booking Confirmed</h2>
+                <p className="text-gray-400 text-xs mt-1">Thank you for your order!</p>
               </div>
-            )}
+            </div>
 
-            {/* Hold Expiry Timer Panel */}
-            {reservationExpiry && (
-              <div className="bg-amber-500/10 border border-amber-500/25 p-3 rounded-xl flex items-center justify-between text-xs text-amber-400 mt-4">
-                <span className="font-medium">Hold Expiration Timer:</span>
-                <span className="font-bold text-sm bg-slate-950 px-2 py-0.5 rounded border border-amber-500/20">
-                  {formatTime(timeLeft)}
-                </span>
+            <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3 text-xs text-gray-300">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Booking Ref:</span>
+                <strong className="text-white font-mono text-sm">{bookingSuccess.bookingReference}</strong>
               </div>
-            )}
+              <div className="flex justify-between">
+                <span className="text-gray-500">Event:</span>
+                <span className="text-white text-right font-medium">{event.title}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Seats Booked:</span>
+                <span className="text-white font-bold">{bookingSuccess.seats.join(', ')}</span>
+              </div>
+              <div className="flex justify-between border-t border-slate-800 pt-3 text-sm">
+                <span className="text-gray-400 font-semibold">Total Amount:</span>
+                <strong className="text-white font-extrabold text-base">₹{bookingSuccess.totalAmount}</strong>
+              </div>
+            </div>
 
-            {/* Selected Seats breakdown */}
-            <div className="mt-6 border-t border-slate-800 pt-4 space-y-3">
-              {selectedSeats.length === 0 ? (
-                <div className="text-center text-gray-500 text-xs py-4">
-                  No seats selected. Click on available grid blocks to select.
+            <div className="space-y-3">
+              <Link
+                to="/events"
+                className="block w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs text-center rounded-xl transition-all"
+              >
+                Browse Other Events
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl h-fit flex flex-col justify-between space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-white mb-2">Booking Summary</h2>
+              <p className="text-gray-400 text-xs">Review your selected seat positions and pricing.</p>
+              
+              {formError && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs mt-4">
+                  {formError}
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="max-h-40 overflow-y-auto space-y-2 pr-1">
-                    {selectedSeats.map(seat => (
-                      <div key={seat.seatId} className="flex justify-between items-center text-xs bg-slate-950 border border-slate-850 p-2.5 rounded-lg">
-                        <div>
-                          <span className="font-bold text-white text-sm mr-2">{seat.seatId}</span>
-                          <span className="text-[10px] text-indigo-400 px-1.5 py-0.5 bg-indigo-900/30 rounded border border-indigo-900/30">
-                            {seat.category}
-                          </span>
+              )}
+
+              {success && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-xs mt-4">
+                  {success}
+                </div>
+              )}
+
+              {/* Hold Expiry Timer Panel */}
+              {reservationExpiry && (
+                <div className="bg-amber-500/10 border border-amber-500/25 p-3 rounded-xl flex items-center justify-between text-xs text-amber-400 mt-4">
+                  <span className="font-medium">Hold Expiration Timer:</span>
+                  <span className="font-bold text-sm bg-slate-950 px-2 py-0.5 rounded border border-amber-500/20">
+                    {formatTime(timeLeft)}
+                  </span>
+                </div>
+              )}
+
+              {/* Selected Seats breakdown */}
+              <div className="mt-6 border-t border-slate-800 pt-4 space-y-3">
+                {selectedSeats.length === 0 ? (
+                  <div className="text-center text-gray-500 text-xs py-4">
+                    No seats selected. Click on available grid blocks to select.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="max-h-40 overflow-y-auto space-y-2 pr-1">
+                      {selectedSeats.map(seat => (
+                        <div key={seat.seatId} className="flex justify-between items-center text-xs bg-slate-950 border border-slate-850 p-2.5 rounded-lg">
+                          <div>
+                            <span className="font-bold text-white text-sm mr-2">{seat.seatId}</span>
+                            <span className="text-[10px] text-indigo-400 px-1.5 py-0.5 bg-indigo-900/30 rounded border border-indigo-900/30">
+                              {seat.category}
+                            </span>
+                          </div>
+                          <span className="text-white font-semibold">₹{getSeatPrice(seat)}</span>
                         </div>
-                        <span className="text-white font-semibold">₹{getSeatPrice(seat)}</span>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
 
-                  <div className="border-t border-slate-800 pt-3 flex justify-between items-center text-sm">
-                    <span className="text-gray-400 font-medium">Subtotal ({selectedSeats.length} seats):</span>
-                    <span className="text-xl font-bold text-white">₹{totalPrice}</span>
+                    <div className="border-t border-slate-800 pt-3 flex justify-between items-center text-sm">
+                      <span className="text-gray-400 font-medium">Subtotal ({selectedSeats.length} seats):</span>
+                      <span className="text-xl font-bold text-white">₹{totalPrice}</span>
+                    </div>
                   </div>
-                </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-2">
+              {!user ? (
+                <Link 
+                  to="/login"
+                  className="block w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs text-center rounded-xl shadow transition-all active:scale-[0.98]"
+                >
+                  Log In to Book Tickets
+                </Link>
+              ) : user.role !== 'Customer' ? (
+                <button 
+                  disabled 
+                  className="w-full py-2.5 bg-slate-800 text-gray-500 font-semibold text-xs rounded-xl border border-slate-700 cursor-not-allowed"
+                >
+                  Only Customers Can Book
+                </button>
+              ) : reservationExpiry ? (
+                <button
+                  disabled={formLoading}
+                  onClick={handleConfirmBooking}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow transition-all disabled:opacity-50 active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  {formLoading ? (
+                    <>
+                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                      <span>Processing Payment...</span>
+                    </>
+                  ) : (
+                    <span>Confirm & Pay (₹{totalPrice})</span>
+                  )}
+                </button>
+              ) : (
+                <button
+                  disabled={selectedSeats.length === 0 || formLoading}
+                  onClick={handleReserveSeats}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow transition-all disabled:opacity-50 active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  {formLoading ? (
+                    <>
+                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                      <span>Reserving...</span>
+                    </>
+                  ) : (
+                    <span>Lock & Reserve Seats</span>
+                  )}
+                </button>
               )}
             </div>
           </div>
-
-          <div className="pt-2">
-            {!user ? (
-              <Link 
-                to="/login"
-                className="block w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs text-center rounded-xl shadow transition-all active:scale-[0.98]"
-              >
-                Log In to Book Tickets
-              </Link>
-            ) : user.role !== 'Customer' ? (
-              <button 
-                disabled 
-                className="w-full py-2.5 bg-slate-800 text-gray-500 font-semibold text-xs rounded-xl border border-slate-700 cursor-not-allowed"
-              >
-                Only Customers Can Book
-              </button>
-            ) : (
-              <button
-                disabled={selectedSeats.length === 0 || formLoading || !!reservationExpiry}
-                onClick={handleReserveSeats}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow transition-all disabled:opacity-50 active:scale-[0.98] flex items-center justify-center gap-2"
-              >
-                {formLoading ? (
-                  <>
-                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                    <span>Reserving...</span>
-                  </>
-                ) : (
-                  <span>Lock & Reserve Seats</span>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
