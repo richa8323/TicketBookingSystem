@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Venues from './pages/admin/Venues';
 import AdminEvents from './pages/admin/Events';
 import EventDetails from './pages/EventDetails';
+import CustomerBookings from './pages/customer/CustomerBookings';
 
 function App() {
   return (
@@ -22,6 +23,16 @@ function App() {
             <Route path="register" element={<Register />} />
             <Route path="events" element={<Events />} />
             <Route path="events/:eventId" element={<EventDetails />} />
+            
+            {/* Protected Customer Routes */}
+            <Route 
+              path="customer/bookings" 
+              element={
+                <ProtectedRoute allowedRoles={['Customer']}>
+                  <CustomerBookings />
+                </ProtectedRoute>
+              } 
+            />
             
             {/* Protected Admin Routes */}
             <Route 

@@ -57,6 +57,18 @@ export default function Header() {
               </NavLink>
             </>
           )}
+
+          {/* Conditional Customer Links */}
+          {user && user.role === 'Customer' && (
+            <NavLink 
+              to="/customer/bookings" 
+              className={({ isActive }) => 
+                isActive ? "text-indigo-400 font-semibold" : "text-gray-300 hover:text-white transition-colors"
+              }
+            >
+              My Bookings
+            </NavLink>
+          )}
           
           {user ? (
             <div className="flex items-center space-x-4">
