@@ -3,16 +3,13 @@ const router = express.Router();
 const { createEvent, getEvents, getEventById, updateEvent, deleteEvent } = require('../controllers/event');
 const { protect, authorize } = require('../middlewares/auth');
 
-// All event routes require standard JWT verification
-router.use(protect);
+// Public routes
+router.get('/', getEvents);
+router.get('/:id', getEventById);
 
-router.route('/')
-  .post(authorize('Admin', 'Organiser'), createEvent)
-  .get(getEvents);
-
-router.route('/:id')
-  .get(getEventById)
-  .patch(authorize('Admin', 'Organiser'), updateEvent)
-  .delete(authorize('Admin', 'Organiser'), deleteEvent);
+// Protected routes (require authentication + role authorization)
+router.post('/', protect, authorize('Admin', 'Organiser'), createEvent);
+router.patch('/:id', protect, authorize('Admin', 'Organiser'), updateEvent);
+router.delete('/:id', protect, authorize('Admin', 'Organiser'), deleteEvent);
 
 module.exports = router;
