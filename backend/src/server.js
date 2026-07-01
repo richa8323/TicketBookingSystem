@@ -9,6 +9,7 @@ const venueRoutes = require('./routes/venue');
 const eventRoutes = require('./routes/event');
 const organiserRoutes = require('./routes/organiser');
 const customerRoutes = require('./routes/customer');
+const bookingRoutes = require('./routes/booking');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,6 +23,7 @@ app.use('/api/venues', venueRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/organiser', organiserRoutes);
 app.use('/api/customer', customerRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is up and running' });
