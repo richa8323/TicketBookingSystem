@@ -9,6 +9,7 @@ import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import Venues from './pages/admin/Venues';
 import AdminEvents from './pages/admin/Events';
+import EventDetails from './pages/EventDetails';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
             <Route path="events" element={<Events />} />
+            <Route path="events/:eventId" element={<EventDetails />} />
             
             {/* Protected Admin Routes */}
             <Route 
