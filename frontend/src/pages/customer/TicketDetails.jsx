@@ -218,24 +218,29 @@ export default function TicketDetails() {
               </span>
             </div>
 
-            {/* Handcrafted Mock QR Code scanner checkin placeholder */}
-            <div className="w-32 h-32 bg-white p-2 rounded-xl border border-slate-200 flex flex-col items-center justify-center space-y-1.5 shadow mx-auto">
-              <div className="w-24 h-24 bg-slate-950 rounded flex flex-col justify-between p-1.5">
-                <div className="flex justify-between">
-                  <div className="w-5 h-5 border-2 border-white rounded-sm"></div>
-                  <div className="w-5 h-5 border-2 border-white rounded-sm"></div>
+            {/* Real QR Code / Scanner Check-in Section */}
+            <div className="relative w-32 h-32 bg-white p-2 rounded-xl border border-slate-200 flex flex-col items-center justify-center shadow mx-auto">
+              {booking.qrCode ? (
+                <img 
+                  src={booking.qrCode} 
+                  alt="Check-in QR Code"
+                  className={`w-24 h-24 object-contain select-none pointer-events-none ${
+                    !isConfirmed ? 'opacity-20 grayscale' : ''
+                  }`}
+                />
+              ) : (
+                <div className="w-24 h-24 bg-slate-100 flex items-center justify-center text-slate-400 text-[10px] font-mono text-center">
+                  QR Code Unavailable
                 </div>
-                <div className="flex justify-center">
-                  <div className="w-8 h-8 border border-dashed border-white/40 flex items-center justify-center text-[10px] text-white/50 font-mono">
-                    QR
-                  </div>
+              )}
+              {!isConfirmed && (
+                <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none">
+                  <span className="text-red-600 font-extrabold text-sm uppercase tracking-wider bg-slate-950 border border-red-600/30 px-2 py-0.5 rounded rotate-12">
+                    VOID
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <div className="w-5 h-5 border-2 border-white rounded-sm"></div>
-                  <div className="w-2 h-2 bg-white rounded-sm"></div>
-                </div>
-              </div>
-              <span className="text-[9px] text-slate-800 uppercase tracking-widest font-extrabold">QR Check-In</span>
+              )}
+              <span className="text-[9px] text-slate-800 uppercase tracking-widest font-extrabold mt-1">QR Check-In</span>
             </div>
 
             <div className="flex justify-between border-t border-slate-900 pt-4">

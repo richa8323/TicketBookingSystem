@@ -1,7 +1,22 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 const Booking = require('../models/Booking');
 const Event = require('../models/Event');
+const { getIO } = require('../utils/socket');
+const { sendTicketEmail } = require('../utils/email');
+
+// Reusable helper to generate and attach QR code to a booking document
+async function attachQRCode(bookingDoc) {
+  const bookingObj = bookingDoc.toObject();
+  bookingObj.qrCode = null;
+  try {
+    bookingObj.qrCode = await QRCode.toDataURL(bookingObj.bookingReference);
+  } catch (err) {
+    console.error('QR generation failed:', err);
+  }
+  return bookingObj;
+}
 
 /**
  * Create a new booking from reserved seats
@@ -125,7 +140,6 @@ const createBooking = async (req, res) => {
 
       await booking.save();
 
-      const { getIO } = require('../utils/socket');
       const io = getIO();
       if (io) {
         const updatedSeats = seatIds.map(id => ({
@@ -138,9 +152,16 @@ const createBooking = async (req, res) => {
         });
       }
 
+      const bookingObj = await attachQRCode(booking);
+
+      // Fire-and-forget background email delivery with promise catch protection
+      sendTicketEmail(req.user.email, bookingObj, event).catch(err => {
+        console.error('[Email Service Error] Background process failed:', err);
+      });
+
       return res.status(200).json({
         status: 'success',
-        data: { booking }
+        data: { booking: bookingObj }
       });
     } catch (err) {
       // Revert seat states back to available if database persist fails
@@ -233,9 +254,11 @@ const getBookingById = async (req, res) => {
       });
     }
 
+    const bookingObj = await attachQRCode(booking);
+
     return res.status(200).json({
       status: 'success',
-      data: { booking }
+      data: { booking: bookingObj }
     });
 
   } catch (error) {
@@ -345,7 +368,6 @@ const cancelBooking = async (req, res) => {
         }
       );
 
-      const { getIO } = require('../utils/socket');
       const io = getIO();
       if (io) {
         const updatedSeats = booking.seats.map(id => ({
@@ -360,10 +382,14 @@ const cancelBooking = async (req, res) => {
         });
       }
     } catch (dbError) {
-      await Booking.updateOne(
-        { _id: bookingId },
-        { $set: { status: "confirmed" } }
-      );
+      try {
+        await Booking.updateOne(
+          { _id: bookingId },
+          { $set: { status: "confirmed" } }
+        );
+      } catch (rollbackError) {
+        console.error('[Rollback Critical Error] Failed to restore booking status:', rollbackError);
+      }
       throw dbError;
     }
 
