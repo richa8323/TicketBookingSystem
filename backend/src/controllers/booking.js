@@ -18,6 +18,137 @@ async function attachQRCode(bookingDoc) {
   return bookingObj;
 }
 
+// Reusable booking finalization helper
+async function finalizeBooking({ user, eventId, seatIds, paymentDetails = null }) {
+  // 1. Fetch event with venue categories populated
+  const event = await Event.findById(eventId).populate('venue');
+  if (!event) {
+    throw new Error('Event not found.');
+  }
+
+  // 2. Verify that the current user holds active reservations
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  let totalAmount = 0;
+
+  for (const seatId of seatIds) {
+    const eventSeat = event.seats.find(s => s.seatId === seatId);
+    if (!eventSeat) {
+      throw new Error(`Seat ${seatId} does not exist for this event.`);
+    }
+
+    if (
+      eventSeat.status !== 'reserved' ||
+      eventSeat.reservedBy?.toString() !== user._id.toString() ||
+      !eventSeat.reservedAt ||
+      eventSeat.reservedAt < fiveMinutesAgo
+    ) {
+      throw new Error(`Reservation for seat ${seatId} is expired, invalid, or held by another user.`);
+    }
+
+    // Compute pricing based on seat category and multiplier
+    const category = event.venue?.seatCategories?.find(cat => cat.name === eventSeat.category);
+    const multiplier = category ? category.priceMultiplier : 1.0;
+    totalAmount += event.basePrice * multiplier;
+  }
+
+  // 3. Atomic MongoDB Seat State Transition (reserved -> booked)
+  const query = {
+    _id: eventId,
+    seats: {
+      $all: seatIds.map(id => ({
+        $elemMatch: {
+          seatId: id,
+          status: 'reserved',
+          reservedBy: user._id,
+          reservedAt: { $gte: fiveMinutesAgo }
+        }
+      }))
+    }
+  };
+
+  const update = {
+    $set: {
+      "seats.$[elem].status": "booked",
+      "seats.$[elem].reservedBy": null,
+      "seats.$[elem].reservedAt": null
+    }
+  };
+
+  const options = {
+    arrayFilters: [
+      {
+        "elem.seatId": { $in: seatIds },
+        "elem.status": "reserved",
+        "elem.reservedBy": user._id
+      }
+    ],
+    new: true
+  };
+
+  const updatedEvent = await Event.findOneAndUpdate(query, update, options);
+  if (!updatedEvent) {
+    throw new Error('Booking conflict. One or more seat holds expired or changed status.');
+  }
+
+  // 4. Generate collision-resistant unique booking reference
+  const bookingReference = `BOOK-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
+
+  // 5. Persist Booking Document
+  try {
+    const booking = new Booking({
+      user: user._id,
+      event: eventId,
+      seats: seatIds,
+      totalAmount,
+      bookingReference,
+      status: 'confirmed',
+      paymentDetails
+    });
+
+    await booking.save();
+
+    const io = getIO();
+    if (io) {
+      const updatedSeats = seatIds.map(id => ({
+        seatId: id,
+        status: 'booked'
+      }));
+      io.to(`event_${eventId}`).emit('seatStatusUpdate', {
+        eventId,
+        seats: updatedSeats
+      });
+    }
+
+    const bookingObj = await attachQRCode(booking);
+
+    // Fire-and-forget background email delivery with promise catch protection
+    sendTicketEmail(user.email, bookingObj, event).catch(err => {
+      console.error('[Email Service Error] Background process failed:', err);
+    });
+
+    return bookingObj;
+  } catch (err) {
+    // Revert seat states back to available if database persist fails
+    if (err.code === 11000) {
+      // Rollback booked seats back to available so they can be re-attempted
+      await Event.updateOne(
+        { _id: eventId },
+        { $set: { "seats.$[elem].status": "available" } },
+        { arrayFilters: [{ "elem.seatId": { $in: seatIds } }] }
+      );
+      
+      if (err.keyPattern && (err.keyPattern['paymentDetails.orderId'] || err.keyPattern['paymentDetails.paymentId'])) {
+        const idempotencyError = new Error('Payment already processed.');
+        idempotencyError.statusCode = 409;
+        throw idempotencyError;
+      }
+      
+      throw new Error('Booking reference collision. Please retry.');
+    }
+    throw err;
+  }
+}
+
 /**
  * Create a new booking from reserved seats
  * @route POST /api/bookings
@@ -27,7 +158,7 @@ const createBooking = async (req, res) => {
   try {
     const { eventId, seatIds } = req.body;
 
-    // 1. Validate inputs
+    // Validate inputs
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
       return res.status(400).json({
         status: 'fail',
@@ -42,145 +173,16 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // 2. Fetch event with venue categories populated
-    const event = await Event.findById(eventId).populate('venue');
-    if (!event) {
-      return res.status(404).json({
-        status: 'fail',
-        message: 'Event not found.'
-      });
-    }
+    const bookingObj = await finalizeBooking({
+      user: req.user,
+      eventId,
+      seatIds
+    });
 
-    // 3. Verify that the current user holds active reservations
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    let totalAmount = 0;
-
-    for (const seatId of seatIds) {
-      const eventSeat = event.seats.find(s => s.seatId === seatId);
-      if (!eventSeat) {
-        return res.status(400).json({
-          status: 'fail',
-          message: `Seat ${seatId} does not exist for this event.`
-        });
-      }
-
-      if (
-        eventSeat.status !== 'reserved' ||
-        eventSeat.reservedBy?.toString() !== req.user._id.toString() ||
-        !eventSeat.reservedAt ||
-        eventSeat.reservedAt < fiveMinutesAgo
-      ) {
-        return res.status(409).json({
-          status: 'fail',
-          message: `Reservation for seat ${seatId} is expired, invalid, or held by another user.`
-        });
-      }
-
-      // Compute pricing based on seat category and multiplier
-      const category = event.venue?.seatCategories?.find(cat => cat.name === eventSeat.category);
-      const multiplier = category ? category.priceMultiplier : 1.0;
-      totalAmount += event.basePrice * multiplier;
-    }
-
-    // 4. Atomic MongoDB Seat State Transition (reserved -> booked)
-    const query = {
-      _id: eventId,
-      seats: {
-        $all: seatIds.map(id => ({
-          $elemMatch: {
-            seatId: id,
-            status: 'reserved',
-            reservedBy: req.user._id,
-            reservedAt: { $gte: fiveMinutesAgo }
-          }
-        }))
-      }
-    };
-
-    const update = {
-      $set: {
-        "seats.$[elem].status": "booked",
-        "seats.$[elem].reservedBy": null,
-        "seats.$[elem].reservedAt": null
-      }
-    };
-
-    const options = {
-      arrayFilters: [
-        {
-          "elem.seatId": { $in: seatIds },
-          "elem.status": "reserved",
-          "elem.reservedBy": req.user._id
-        }
-      ],
-      new: true
-    };
-
-    const updatedEvent = await Event.findOneAndUpdate(query, update, options);
-    if (!updatedEvent) {
-      return res.status(409).json({
-        status: 'fail',
-        message: 'Booking conflict. One or more seat holds expired or changed status.'
-      });
-    }
-
-    // 5. Generate collision-resistant unique booking reference
-    const bookingReference = `BOOK-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
-
-    // 6. Persist Booking Document
-    try {
-      const booking = new Booking({
-        user: req.user._id,
-        event: eventId,
-        seats: seatIds,
-        totalAmount,
-        bookingReference,
-        status: 'confirmed'
-      });
-
-      await booking.save();
-
-      const io = getIO();
-      if (io) {
-        const updatedSeats = seatIds.map(id => ({
-          seatId: id,
-          status: 'booked'
-        }));
-        io.to(`event_${eventId}`).emit('seatStatusUpdate', {
-          eventId,
-          seats: updatedSeats
-        });
-      }
-
-      const bookingObj = await attachQRCode(booking);
-
-      // Fire-and-forget background email delivery with promise catch protection
-      sendTicketEmail(req.user.email, bookingObj, event).catch(err => {
-        console.error('[Email Service Error] Background process failed:', err);
-      });
-
-      return res.status(200).json({
-        status: 'success',
-        data: { booking: bookingObj }
-      });
-    } catch (err) {
-      // Revert seat states back to available if database persist fails
-      if (err.code === 11000) {
-        // Rollback booked seats back to available so they can be re-attempted
-        await Event.updateOne(
-          { _id: eventId },
-          { $set: { "seats.$[elem].status": "available" } },
-          { arrayFilters: [{ "elem.seatId": { $in: seatIds } }] }
-        );
-        
-        return res.status(500).json({
-          status: 'error',
-          message: 'Booking reference collision. Please retry.'
-        });
-      }
-      throw err;
-    }
-
+    return res.status(200).json({
+      status: 'success',
+      data: { booking: bookingObj }
+    });
   } catch (error) {
     return res.status(500).json({
       status: 'error',
@@ -410,5 +412,6 @@ module.exports = {
   createBooking,
   getMyBookings,
   getBookingById,
-  cancelBooking
+  cancelBooking,
+  finalizeBooking
 };

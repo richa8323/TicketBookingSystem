@@ -70,7 +70,7 @@ const sendTicketEmail = async (userEmail, booking, event) => {
     const mailOptions = {
       from: process.env.EMAIL_FROM || '"TicketPass Systems" <support@ticketpass.com>',
       to: userEmail,
-      subject: `Booking Confirmed: ${event.title} (${booking.bookingReference})`,
+      subject: `Booking Confirmed: ${escapeHTML(event.title)} (${escapeHTML(booking.bookingReference)})`,
       html: htmlContent,
       attachments: [
         {

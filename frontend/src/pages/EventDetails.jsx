@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 export default function EventDetails() {
   const { eventId } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -85,6 +86,17 @@ export default function EventDetails() {
       socket.disconnect();
     };
   }, [eventId]);
+
+  // Dynamically load Razorpay Checkout script on mount
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   // Countdown timer logic
   useEffect(() => {
@@ -201,7 +213,7 @@ export default function EventDetails() {
     }
   };
 
-  // Confirm and Book Handler
+  // Confirm and Pay Handler (Razorpay checkout)
   const handleConfirmBooking = async () => {
     if (selectedSeats.length === 0 || !reservationExpiry) return;
     try {
@@ -210,27 +222,77 @@ export default function EventDetails() {
       
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
       
-      const response = await axios.post(
-        `${API_BASE}/api/bookings`,
+      // 1. Create Razorpay Payment Order
+      const orderResponse = await axios.post(
+        `${API_BASE}/api/payments/create-order`,
         {
           eventId,
           seatIds: selectedSeats.map(s => s.seatId)
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers }
       );
       
-      setBookingSuccess(response.data.data.booking);
-      setReservationExpiry(null);
-      setSelectedSeats([]);
-      setSuccess('');
-      fetchEventDetails();
+      const { orderId, amount, currency } = orderResponse.data.data;
+      
+      // 2. Open Razorpay Checkout modal
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_dummy',
+        amount,
+        currency,
+        name: 'TicketPass',
+        description: `Booking for ${event.title}`,
+        order_id: orderId,
+        handler: async function (response) {
+          try {
+            setFormLoading(true);
+            setFormError('');
+            
+            // 3. Verify payment signature on backend
+            const verifyRes = await axios.post(
+              `${API_BASE}/api/payments/verify`,
+              {
+                eventId,
+                seatIds: selectedSeats.map(s => s.seatId),
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              },
+              { headers }
+            );
+            
+            if (verifyRes.data.status === 'success') {
+              const booking = verifyRes.data.data.booking;
+              setReservationExpiry(null);
+              setSelectedSeats([]);
+              setSuccess('Payment verified and booking confirmed!');
+              navigate(`/customer/tickets/${booking._id}`);
+            }
+          } catch (err) {
+            setFormError(err.response?.data?.message || 'Payment verification failed.');
+          } finally {
+            setFormLoading(false);
+          }
+        },
+        prefill: {
+          name: user?.name || '',
+          email: user?.email || ''
+        },
+        theme: {
+          color: '#4f46e5'
+        },
+        modal: {
+          ondismiss: function () {
+            setFormLoading(false);
+          }
+        }
+      };
+      
+      const rzp = new window.Razorpay(options);
+      rzp.open();
     } catch (err) {
-      setFormError(err.response?.data?.message || 'Booking confirmation failed.');
-      setReservationExpiry(null);
-      setSelectedSeats([]);
-      setSuccess('');
-    } finally {
+      setFormError(err.response?.data?.message || 'Failed to initialize payment.');
       setFormLoading(false);
     }
   };
@@ -520,7 +582,7 @@ export default function EventDetails() {
                       <span>Processing Payment...</span>
                     </>
                   ) : (
-                    <span>Confirm & Pay (₹{totalPrice})</span>
+                    <span>Pay Now (₹{totalPrice})</span>
                   )}
                 </button>
               ) : (

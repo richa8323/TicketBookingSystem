@@ -31,6 +31,19 @@ const bookingSchema = new mongoose.Schema({
     required: true,
     enum: ['confirmed', 'cancelled'],
     default: 'confirmed'
+  },
+  paymentDetails: {
+    provider: String,
+    orderId: {
+      type: String,
+      unique: true,
+      sparse: true
+    },
+    paymentId: {
+      type: String,
+      unique: true,
+      sparse: true
+    }
   }
 }, {
   timestamps: true
