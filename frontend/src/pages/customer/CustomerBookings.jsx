@@ -153,12 +153,20 @@ export default function CustomerBookings() {
 
                 <div className="md:pt-4 border-t border-slate-900 flex justify-between items-center text-[10px] text-gray-500">
                   <span>Booked: {new Date(booking.createdAt).toLocaleDateString()}</span>
-                  <Link 
-                    to={`/events/${event._id}`}
-                    className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
-                  >
-                    View Layout →
-                  </Link>
+                  <div className="flex gap-4">
+                    <Link 
+                      to={`/events/${event._id}`}
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      View Layout
+                    </Link>
+                    <Link 
+                      to={`/customer/tickets/${booking._id}`}
+                      className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
+                    >
+                      View Ticket →
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>

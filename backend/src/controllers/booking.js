@@ -182,7 +182,59 @@ const getMyBookings = async (req, res) => {
   }
 };
 
+/**
+ * Get a single booking by ID
+ * @route GET /api/bookings/:id
+ * @access Private (Customer only)
+ */
+const getBookingById = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+
+    // 1. Validate Mongo ObjectId
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Invalid booking ID format.'
+      });
+    }
+
+    // 2. Fetch booking and populate event+venue references
+    const booking = await Booking.findById(bookingId).populate({
+      path: 'event',
+      populate: { path: 'venue' }
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Booking not found.'
+      });
+    }
+
+    // 3. Enforce ownership validation
+    if (booking.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You do not have permission to view this ticket.'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: { booking }
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: 'error',
+      message: error.message
+    });
+  }
+};
+
 module.exports = {
   createBooking,
-  getMyBookings
+  getMyBookings,
+  getBookingById
 };

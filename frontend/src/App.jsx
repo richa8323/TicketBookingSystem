@@ -11,6 +11,7 @@ import Venues from './pages/admin/Venues';
 import AdminEvents from './pages/admin/Events';
 import EventDetails from './pages/EventDetails';
 import CustomerBookings from './pages/customer/CustomerBookings';
+import TicketDetails from './pages/customer/TicketDetails';
 
 function App() {
   return (
@@ -30,6 +31,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['Customer']}>
                   <CustomerBookings />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="customer/tickets/:bookingId" 
+              element={
+                <ProtectedRoute allowedRoles={['Customer']}>
+                  <TicketDetails />
                 </ProtectedRoute>
               } 
             />
